@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-export const runtime = "nodejs";
 
 export async function GET() {
   // ✅ Next.js 15: cookies()는 Promise
