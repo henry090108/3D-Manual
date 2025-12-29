@@ -18,7 +18,11 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  /** ✅ 로그인 여부 확인 + 이전 대화 불러오기 */
+  /**
+   * 1️⃣ 로그인 여부 확인 + 이전 대화 불러오기
+   * - 로그인 안 되어 있으면 /login으로 이동
+   * - 로그인 되어 있으면 스프레드시트에 저장된 대화 복원
+   */
   useEffect(() => {
     fetch("/api/history")
       .then(async (res) => {
@@ -44,12 +48,12 @@ export default function Page() {
       });
   }, [router]);
 
-  /** 스크롤 하단 유지 */
+  /** 2️⃣ 스크롤 항상 하단 유지 */
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  /** 메시지 전송 */
+  /** 3️⃣ 메시지 전송 */
   async function send() {
     const q = input.trim();
     if (!q || loading) return;
@@ -67,23 +71,31 @@ export default function Page() {
 
       const data = await res.json();
 
+      // 로그인 세션 만료
       if (res.status === 401) {
         router.push("/login");
         return;
       }
 
+      // 사용량 초과 등 에러
       if (!res.ok) {
         throw new Error(data?.error || "API error");
       }
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: data?.answer ?? "(응답이 비어 있습니다)" },
+        {
+          role: "assistant",
+          text: data?.answer ?? "(응답이 비어 있습니다)",
+        },
       ]);
     } catch (e: any) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: `오류: ${e?.message || e}` },
+        {
+          role: "assistant",
+          text: `오류: ${e?.message || e}`,
+        },
       ]);
     } finally {
       setLoading(false);
@@ -114,7 +126,8 @@ export default function Page() {
             key={i}
             style={{
               display: "flex",
-              justifyContent: m.role === "user" ? "flex-end" : "flex-start",
+              justifyContent:
+                m.role === "user" ? "flex-end" : "flex-start",
               margin: "10px 0",
             }}
           >
@@ -126,7 +139,9 @@ export default function Page() {
                 whiteSpace: "pre-wrap",
                 border: "1px solid rgba(0,0,0,0.10)",
                 background:
-                  m.role === "user" ? "rgba(0,0,0,0.04)" : "white",
+                  m.role === "user"
+                    ? "rgba(0,0,0,0.04)"
+                    : "white",
               }}
             >
               {m.text}
@@ -169,7 +184,9 @@ export default function Page() {
             padding: "12px 14px",
             borderRadius: 10,
             border: "1px solid rgba(0,0,0,0.2)",
-            background: loading ? "rgba(0,0,0,0.06)" : "white",
+            background: loading
+              ? "rgba(0,0,0,0.06)"
+              : "white",
             cursor: loading ? "not-allowed" : "pointer",
             fontWeight: 600,
           }}
