@@ -6,7 +6,7 @@ It uses the OpenAI GPT API to generate responses grounded in uploaded documentat
 The chatbot supports multi-user access and conversational memory.
 
 ## License
+© 2025 Ham Junhyuk  
 This project is licensed under the Creative Commons Attribution-NonCommercial
 4.0 International License (CC BY-NC 4.0).
 Commercial use is not permitted.
-
