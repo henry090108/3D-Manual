@@ -40,6 +40,23 @@ function cosineSimilarity(a: number[], b: number[]) {
  */
 export async function POST(req: Request) {
   try {
+    /**
+     * 0. 로그인 사용자 확인 (쿠키)
+     *    - /api/auth/login 에서 userId 쿠키를 설정해둔 상태
+     */
+    const cookie = req.headers.get("cookie") || "";
+    const userIdMatch = cookie.match(/userId=([^;]+)/);
+    const userId = userIdMatch
+      ? decodeURIComponent(userIdMatch[1])
+      : null;
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "not logged in" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const question: string = body.question;
 
@@ -81,7 +98,6 @@ export async function POST(req: Request) {
     }));
 
     scored.sort((a: any, b: any) => b.score - a.score);
-
     const topDocs = scored.slice(0, TOP_K);
 
     /**
@@ -93,6 +109,21 @@ export async function POST(req: Request) {
           `[출처 ${i + 1}] (${d.manual})\n${d.text}`
       )
       .join("\n\n");
+
+    /**
+     * 🔹 사용자 질문 저장 (Google Spreadsheet)
+     */
+    await fetch(process.env.SHEET_API_URL!, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "addMessage",
+        userId,
+        role: "user",
+        text: question,
+        secret: process.env.SHEET_SHARED_SECRET,
+      }),
+    });
 
     /**
      * 5. GPT 답변 생성
@@ -125,6 +156,26 @@ ${question}
     });
 
     const answer = completion.choices[0].message.content;
+
+    /**
+     * 🔹 GPT 답변 저장 (Google Spreadsheet)
+     */
+    await fetch(process.env.SHEET_API_URL!, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "addMessage",
+        userId,
+        role: "assistant",
+        text: answer,
+        sources: topDocs.map((d: any) => ({
+          id: d.id,
+          manual: d.manual,
+          section: d.section,
+        })),
+        secret: process.env.SHEET_SHARED_SECRET,
+      }),
+    });
 
     /**
      * 6. 응답 반환
