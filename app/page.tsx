@@ -1,21 +1,55 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
 export default function Page() {
+  const router = useRouter();
+
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", text: "안녕하세요! 3D 매뉴얼 기반으로만 답변해요. 무엇을 도와드릴까요?" },
+    {
+      role: "assistant",
+      text: "안녕하세요! 3D 매뉴얼 기반으로만 답변해요. 무엇을 도와드릴까요?",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
+  /** ✅ 로그인 여부 확인 + 이전 대화 불러오기 */
+  useEffect(() => {
+    fetch("/api/history")
+      .then(async (res) => {
+        if (res.status === 401) {
+          router.push("/login");
+          return null;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.messages && Array.isArray(data.messages)) {
+          setMessages((prev) => [
+            prev[0], // 초기 안내 메시지 유지
+            ...data.messages.map((m: any) => ({
+              role: m.role,
+              text: m.text,
+            })),
+          ]);
+        }
+      })
+      .catch(() => {
+        router.push("/login");
+      });
+  }, [router]);
+
+  /** 스크롤 하단 유지 */
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  /** 메시지 전송 */
   async function send() {
     const q = input.trim();
     if (!q || loading) return;
@@ -32,6 +66,11 @@ export default function Page() {
       });
 
       const data = await res.json();
+
+      if (res.status === 401) {
+        router.push("/login");
+        return;
+      }
 
       if (!res.ok) {
         throw new Error(data?.error || "API error");
@@ -86,18 +125,21 @@ export default function Page() {
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",
                 border: "1px solid rgba(0,0,0,0.10)",
-                background: m.role === "user" ? "rgba(0,0,0,0.04)" : "white",
+                background:
+                  m.role === "user" ? "rgba(0,0,0,0.04)" : "white",
               }}
             >
               {m.text}
             </div>
           </div>
         ))}
+
         {loading && (
           <div style={{ opacity: 0.6, padding: "6px 2px" }}>
             답변 생성 중…
           </div>
         )}
+
         <div ref={endRef} />
       </section>
 
