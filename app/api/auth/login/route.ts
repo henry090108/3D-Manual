@@ -11,7 +11,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Apps Script로 로그인 검증
     const res = await fetch(process.env.SHEET_API_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -32,11 +31,6 @@ export async function POST(req: Request) {
       );
     }
 
-    /**
-     * ✅ 로그인 '되던 시절' 방식
-     * - NextResponse에 쿠키 직접 세팅
-     * - session 서명 없음 (단순)
-     */
     const response = NextResponse.json({
       ok: true,
       role: data.role,
@@ -44,10 +38,16 @@ export async function POST(req: Request) {
       usedToday: data.usedToday,
     });
 
-    response.cookies.set("userId", userId, {
+    /**
+     * 🔥 Vercel 확정 세팅
+     */
+    response.cookies.set({
+      name: "userId",
+      value: userId,
       httpOnly: true,
       path: "/",
-      sameSite: "lax",
+      sameSite: "none", // ⭐ 변경
+      secure: true,     // ⭐ 반드시 true
     });
 
     return response;
