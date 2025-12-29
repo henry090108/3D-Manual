@@ -2,67 +2,69 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 export async function POST(req: Request) {
-  try {
-    const { userId, password } = await req.json();
+  const { userId, password } = await req.json();
 
-    if (!userId || !password) {
-      return NextResponse.json(
-        { error: "missing credentials" },
-        { status: 400 }
-      );
-    }
-
-    // 1️⃣ Google Apps Script로 로그인 요청
-    const res = await fetch(process.env.SHEET_API_URL!, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "login",
-        userId,
-        password,
-        secret: process.env.SHEET_SHARED_SECRET,
-      }),
-    });
-
-    const data = await res.json();
-
-    // 2️⃣ 인증 실패
-    if (!data.ok) {
-      return NextResponse.json({ error: "invalid" }, { status: 401 });
-    }
-
-    // 3️⃣ 세션 토큰 생성 (HMAC, 서버 전용)
-    const token = crypto
-      .createHmac("sha256", process.env.SESSION_SECRET!)
-      .update(userId)
-      .digest("hex");
-
-    // 4️⃣ 응답 + HttpOnly 쿠키 설정
-    const response = NextResponse.json({
-      ok: true,
-      userId,
-      dailyLimit: data.dailyLimit ?? null,
-      usedToday: data.usedToday ?? null,
-    });
-
-    response.cookies.set("session", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-    });
-
-    response.cookies.set("userId", userId, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-    });
-
-    return response;
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
+  if (!userId || !password) {
     return NextResponse.json(
-      { error: "server error" },
-      { status: 500 }
+      { error: "missing credentials" },
+      { status: 400 }
     );
   }
+
+  // Apps Script에 로그인 검증 요청
+  const res = await fetch(process.env.SHEET_API_URL!, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "login",
+      userId,
+      password,
+      secret: process.env.SHEET_SHARED_SECRET,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (!data.ok) {
+    return NextResponse.json(
+      { error: "invalid credentials" },
+      { status: 401 }
+    );
+  }
+
+  /**
+   * ✅ Next.js 15 정석 쿠키 설정
+   * - cookies() 직접 사용 ❌
+   * - NextResponse.cookies.set() ⭕
+   */
+  const response = NextResponse.json({
+    ok: true,
+    role: data.role,
+    dailyLimit: data.dailyLimit,
+    usedToday: data.usedToday,
+  });
+
+  response.cookies.set({
+    name: "userId",
+    value: userId,
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  // (선택) 세션 서명 토큰
+  const token = crypto
+    .createHmac("sha256", process.env.SESSION_SECRET!)
+    .update(userId)
+    .digest("hex");
+
+  response.cookies.set({
+    name: "session",
+    value: token,
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+
+  return response;
 }
