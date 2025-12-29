@@ -5,14 +5,14 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 /**
- * 설정값
+ * 설정
  */
 const TOP_K = 5;
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const CHAT_MODEL = "gpt-4.1-mini";
 
 /**
- * OpenAI 클라이언트
+ * OpenAI
  */
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -40,10 +40,11 @@ function cosineSimilarity(a: number[], b: number[]) {
  */
 export async function POST(req: Request) {
   try {
-    /**
-     * 0. 로그인 사용자 확인 (쿠키에서만)
-     */
-    const userId = cookies().get("userId")?.value;
+    /* =========================
+       0. 로그인 사용자 확인
+    ========================= */
+    const cookieStore = await cookies(); // ✅ Next.js 15
+    const userId = cookieStore.get("userId")?.value;
 
     if (!userId) {
       return NextResponse.json(
@@ -61,9 +62,9 @@ export async function POST(req: Request) {
       );
     }
 
-    /**
-     * 1️⃣ 일일 사용량 체크 (가장 먼저!)
-     */
+    /* =========================
+       1. 일일 사용량 체크
+    ========================= */
     const quotaRes = await fetch(process.env.SHEET_API_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -83,9 +84,9 @@ export async function POST(req: Request) {
       );
     }
 
-    /**
-     * 2. 질문 임베딩
-     */
+    /* =========================
+       2. 질문 임베딩
+    ========================= */
     const queryEmbeddingRes = await client.embeddings.create({
       model: EMBEDDING_MODEL,
       input: question,
@@ -93,9 +94,9 @@ export async function POST(req: Request) {
 
     const queryEmbedding = queryEmbeddingRes.data[0].embedding;
 
-    /**
-     * 3. embeddings.json 로드
-     */
+    /* =========================
+       3. embeddings.json 로드
+    ========================= */
     const dataPath = path.join(
       process.cwd(),
       "data",
@@ -106,9 +107,9 @@ export async function POST(req: Request) {
       fs.readFileSync(dataPath, "utf-8")
     );
 
-    /**
-     * 4. 유사도 계산
-     */
+    /* =========================
+       4. 유사도 계산
+    ========================= */
     const scored = documents.map((doc: any) => ({
       ...doc,
       score: cosineSimilarity(queryEmbedding, doc.embedding),
@@ -117,9 +118,6 @@ export async function POST(req: Request) {
     scored.sort((a: any, b: any) => b.score - a.score);
     const topDocs = scored.slice(0, TOP_K);
 
-    /**
-     * 5. GPT 컨텍스트 구성
-     */
     const context = topDocs
       .map(
         (d: any, i: number) =>
@@ -127,9 +125,9 @@ export async function POST(req: Request) {
       )
       .join("\n\n");
 
-    /**
-     * 🔹 사용자 질문 저장
-     */
+    /* =========================
+       5. 사용자 질문 저장
+    ========================= */
     await fetch(process.env.SHEET_API_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -142,9 +140,9 @@ export async function POST(req: Request) {
       }),
     });
 
-    /**
-     * 6. GPT 답변 생성
-     */
+    /* =========================
+       6. GPT 답변 생성
+    ========================= */
     const completion = await client.chat.completions.create({
       model: CHAT_MODEL,
       temperature: 0.2,
@@ -175,9 +173,9 @@ ${question}
     const answer =
       completion.choices[0].message.content || "";
 
-    /**
-     * 🔹 GPT 답변 저장
-     */
+    /* =========================
+       7. GPT 답변 저장
+    ========================= */
     await fetch(process.env.SHEET_API_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -195,9 +193,9 @@ ${question}
       }),
     });
 
-    /**
-     * 7. 응답
-     */
+    /* =========================
+       8. 응답
+    ========================= */
     return NextResponse.json({
       answer,
       sources: topDocs.map((d: any) => ({
