@@ -12,26 +12,16 @@ export default function LoginPage() {
   async function login() {
     setError("");
 
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // ⭐⭐⭐ 핵심 (쿠키 저장)
-        body: JSON.stringify({
-          userId: userId.trim(),
-          password,
-        }),
-      });
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, password }),
+    });
 
-      if (res.ok) {
-        router.push("/");
-        router.refresh(); // 쿠키 반영 강제
-      } else {
-        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
-      }
-    } catch (e) {
-      console.error(e);
-      setError("로그인 중 오류가 발생했습니다.");
+    if (res.ok) {
+      router.push("/");
+    } else {
+      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
     }
   }
 
