@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "3D Manual",
+  title: "3D Manual Chat",
   description: "3D Printer Manual Chatbot",
 };
 
