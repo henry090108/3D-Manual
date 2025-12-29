@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+export const runtime = "nodejs";
 
 /**
  * 설정값
